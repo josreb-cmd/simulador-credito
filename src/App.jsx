@@ -19,6 +19,9 @@ export default function App() {
   // Campo editável para Custos de Notário/Registo
   const [notaryCosts, setNotaryCosts] = useState(1200);
 
+  // Função auxiliar para tratar valores vazios de forma segura
+  const safeNum = (val) => (val === '' || isNaN(val) ? 0 : Number(val));
+
   // 2. Lógica de Cálculo
   const calculateIMT = (price) => {
     if (price <= 101917) return 0;
@@ -37,21 +40,24 @@ export default function App() {
     return (loan * (monthlyRate * Math.pow(1 + monthlyRate, months))) / (Math.pow(1 + monthlyRate, months) - 1);
   };
 
-  const loanAmount = propertyPrice * (ltvPct / 100);
-  const downPayment = propertyPrice - loanAmount;
-  const imt = calculateIMT(propertyPrice);
-  const stampDuty = propertyPrice * 0.008 + loanAmount * 0.006;
-  const totalInitialCash = downPayment + imt + stampDuty + notaryCosts;
+  const loanAmount = safeNum(propertyPrice) * (safeNum(ltvPct) / 100);
+  const downPayment = safeNum(propertyPrice) - loanAmount;
+  const imt = calculateIMT(safeNum(propertyPrice));
+  const stampDuty = safeNum(propertyPrice) * 0.008 + loanAmount * 0.006;
+  const currentNotary = safeNum(notaryCosts);
+  const totalInitialCash = downPayment + imt + stampDuty + currentNotary;
 
   // Definição da TAN Base conforme o regime escolhido
-  const baseRate = rateType === 'variable' ? (euriborPct + spreadPct) : fixedRatePct;
-  const stressRate = baseRate + stressBufferPct;
+  const baseRate = rateType === 'variable' ? (safeNum(euriborPct) + safeNum(spreadPct)) : safeNum(fixedRatePct);
+  const stressRate = baseRate + safeNum(stressBufferPct);
 
-  const pmtBase = calculatePMT(loanAmount, baseRate, termYears);
-  const pmtStress = calculatePMT(loanAmount, stressRate, termYears);
+  const pmtBase = calculatePMT(loanAmount, baseRate, safeNum(termYears));
+  const pmtStress = calculatePMT(loanAmount, stressRate, safeNum(termYears));
 
-  const dstiBase = netIncome > 0 ? ((pmtBase + otherDebts) / netIncome) * 100 : 0;
-  const dstiStress = netIncome > 0 ? ((pmtStress + otherDebts) / netIncome) * 100 : 0;
+  const currentIncome = safeNum(netIncome);
+  const currentDebts = safeNum(otherDebts);
+  const dstiBase = currentIncome > 0 ? ((pmtBase + currentDebts) / currentIncome) * 100 : 0;
+  const dstiStress = currentIncome > 0 ? ((pmtStress + currentDebts) / currentIncome) * 100 : 0;
 
   const formatCurrency = (value) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value);
   const formatPct = (value) => `${value.toFixed(2)}%`;
@@ -67,17 +73,32 @@ export default function App() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">Valor do Imóvel (€)</label>
-              <input type="number" value={propertyPrice} onChange={e => setPropertyPrice(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+              <input 
+                type="number" 
+                value={propertyPrice} 
+                onChange={e => setPropertyPrice(e.target.value === '' ? '' : Number(e.target.value))} 
+                className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" 
+              />
             </div>
             
             <div className="flex gap-4">
               <div className="w-1/2">
                 <label className="block text-sm font-medium mb-1">LTV (%)</label>
-                <input type="number" value={ltvPct} onChange={e => setLtvPct(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+                <input 
+                  type="number" 
+                  value={ltvPct} 
+                  onChange={e => setLtvPct(e.target.value === '' ? '' : Number(e.target.value))} 
+                  className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" 
+                />
               </div>
               <div className="w-1/2">
                 <label className="block text-sm font-medium mb-1">Prazo (Anos)</label>
-                <input type="number" value={termYears} onChange={e => setTermYears(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+                <input 
+                  type="number" 
+                  value={termYears} 
+                  onChange={e => setTermYears(e.target.value === '' ? '' : Number(e.target.value))} 
+                  className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" 
+                />
               </div>
             </div>
 
@@ -107,34 +128,67 @@ export default function App() {
               <div className="flex gap-4">
                 <div className="w-1/2">
                   <label className="block text-sm font-medium mb-1">Euribor (%)</label>
-                  <input type="number" step="0.01" value={euriborPct} onChange={e => setEuriborPct(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    value={euriborPct} 
+                    onChange={e => setEuriborPct(e.target.value === '' ? '' : Number(e.target.value))} 
+                    className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" 
+                  />
                 </div>
                 <div className="w-1/2">
                   <label className="block text-sm font-medium mb-1">Spread (%)</label>
-                  <input type="number" step="0.01" value={spreadPct} onChange={e => setSpreadPct(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    value={spreadPct} 
+                    onChange={e => setSpreadPct(e.target.value === '' ? '' : Number(e.target.value))} 
+                    className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" 
+                  />
                 </div>
               </div>
             ) : (
               <div>
                 <label className="block text-sm font-medium mb-1">Taxa Fixa (TAN %)</label>
-                <input type="number" step="0.01" value={fixedRatePct} onChange={e => setFixedRatePct(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  value={fixedRatePct} 
+                  onChange={e => setFixedRatePct(e.target.value === '' ? '' : Number(e.target.value))} 
+                  className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" 
+                />
               </div>
             )}
 
             <div>
               <label className="block text-sm font-medium mb-1">Notário / Registo (€)</label>
-              <input type="number" value={notaryCosts} onChange={e => setNotaryCosts(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+              <input 
+                type="number" 
+                value={notaryCosts} 
+                onChange={e => setNotaryCosts(e.target.value === '' ? '' : Number(e.target.value))} 
+                className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" 
+              />
             </div>
 
             <hr className="border-gray-600 my-4"/>
             
             <div>
               <label className="block text-sm font-medium mb-1">Rendimento Mensal Líquido (€)</label>
-              <input type="number" value={netIncome} onChange={e => setNetIncome(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+              <input 
+                type="number" 
+                value={netIncome} 
+                onChange={e => setNetIncome(e.target.value === '' ? '' : Number(e.target.value))} 
+                className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Outros Créditos Mensais (€)</label>
-              <input type="number" value={otherDebts} onChange={e => setOtherDebts(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+              <input 
+                type="number" 
+                value={otherDebts} 
+                onChange={e => setOtherDebts(e.target.value === '' ? '' : Number(e.target.value))} 
+                className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" 
+              />
             </div>
           </div>
         </div>
@@ -149,10 +203,10 @@ export default function App() {
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
               <h3 className="font-semibold text-blue-900 mb-4">Capitais Próprios Necessários</h3>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Entrada ({100 - ltvPct}%):</span> <strong>{formatCurrency(downPayment)}</strong></div>
+                <div className="flex justify-between"><span>Entrada ({100 - safeNum(ltvPct)}%):</span> <strong>{formatCurrency(downPayment)}</strong></div>
                 <div className="flex justify-between"><span>IMT (HPP):</span> <strong>{formatCurrency(imt)}</strong></div>
                 <div className="flex justify-between"><span>Imposto Selo:</span> <strong>{formatCurrency(stampDuty)}</strong></div>
-                <div className="flex justify-between"><span>Notário/Registo:</span> <strong>{formatCurrency(notaryCosts)}</strong></div>
+                <div className="flex justify-between"><span>Notário/Registo:</span> <strong>{formatCurrency(currentNotary)}</strong></div>
                 <div className="pt-2 mt-2 border-t border-blue-200 flex justify-between text-base font-bold text-blue-700">
                   <span>Total Inicial:</span> <span>{formatCurrency(totalInitialCash)}</span>
                 </div>
