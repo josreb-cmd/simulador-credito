@@ -73,7 +73,9 @@ export default function App() {
   const loanAmount = safeNum(propertyPrice) * (safeNum(ltvPct) / 100);
   const downPayment = safeNum(propertyPrice) - loanAmount;
   const imt = calculateIMT(safeNum(propertyPrice));
-  const stampDuty = safeNum(propertyPrice) * 0.008 + loanAmount * 0.006;
+  const stampDutyAcquisition = safeNum(propertyPrice) * 0.008; // Verba 1.1 — sobre o valor de aquisição
+  const stampDutyLoan = loanAmount * 0.006; // Verba 17.1.3 — crédito com prazo ≥ 5 anos (taxa 0,6%)
+  const stampDuty = stampDutyAcquisition + stampDutyLoan;
   const currentNotary = safeNum(notaryCosts);
   const totalInitialCash = downPayment + imt + stampDuty + currentNotary;
 
