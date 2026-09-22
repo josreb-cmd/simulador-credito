@@ -275,12 +275,12 @@ export default function App() {
             <div className="mb-4">
               <div className="flex justify-between mb-1 text-sm">
                 <span>Cenário Atual ({formatPct(dstiBase)})</span>
-                <span className={dstiBase > 50 ? "text-red-600 font-bold" : "text-green-600 font-bold"}>
-                  {dstiBase <= 45 ? "Excelente" : dstiBase <= 50 ? "Aceitável" : "Risco Elevado"}
+                <span className={dstiBase > 45 ? "text-red-600 font-bold" : "text-green-600 font-bold"}>
+                  {dstiBase <= 35 ? "Excelente" : dstiBase <= 45 ? "Aceitável" : "Risco Elevado"}
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className={`h-2.5 rounded-full ${dstiBase > 50 ? 'bg-red-600' : dstiBase > 45 ? 'bg-yellow-400' : 'bg-green-600'}`} style={{ width: `${Math.min(dstiBase, 100)}%` }}></div>
+                <div className={`h-2.5 rounded-full ${dstiBase > 45 ? 'bg-red-600' : dstiBase > 35 ? 'bg-yellow-400' : 'bg-green-600'}`} style={{ width: `${Math.min(dstiBase, 100)}%` }}></div>
               </div>
             </div>
 
@@ -288,12 +288,12 @@ export default function App() {
               <div>
                 <div className="flex justify-between mb-1 text-sm text-gray-600">
                   <span>Cenário de Stress ({formatPct(dstiStress)})</span>
-                  <span className={dstiStress > 50 ? "text-red-600 font-bold" : "text-gray-500 font-medium"}>
-                    {dstiStress > 50 ? "Acima do Limite (50%)" : "Limite Regulação: 50%"}
+                  <span className={dstiStress > 45 ? "text-red-600 font-bold" : "text-gray-500 font-medium"}>
+                    {dstiStress > 45 ? "Acima do Limite (45%)" : "Limite Regulação: 45%"}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div className={`h-2.5 rounded-full ${dstiStress > 50 ? 'bg-red-600' : dstiStress > 45 ? 'bg-yellow-400' : 'bg-green-600'}`} style={{ width: `${Math.min(dstiStress, 100)}%` }}></div>
+                  <div className={`h-2.5 rounded-full ${dstiStress > 45 ? 'bg-red-600' : dstiStress > 35 ? 'bg-yellow-400' : 'bg-green-600'}`} style={{ width: `${Math.min(dstiStress, 100)}%` }}></div>
                 </div>
               </div>
             )}
