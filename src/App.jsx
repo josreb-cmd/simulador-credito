@@ -54,12 +54,12 @@ export default function App() {
 
   // 2. Lógica de Cálculo
   const calculateIMT = (price) => {
-    if (price <= 101917) return 0;
-    if (price <= 139412) return price * 0.02 - 2038.34;
-    if (price <= 190086) return price * 0.05 - 6220.70;
-    if (price <= 316772) return price * 0.07 - 10022.42;
-    if (price <= 633453) return price * 0.08 - 13190.14;
-    if (price <= 1102920) return price * 0.06;
+    if (price <= 106346) return 0;
+    if (price <= 145470) return price * 0.02 - 2126.92;
+    if (price <= 198347) return price * 0.05 - 6491.02;
+    if (price <= 330539) return price * 0.07 - 10457.96;
+    if (price <= 660982) return price * 0.08 - 13763.35;
+    if (price <= 1150853) return price * 0.06;
     return price * 0.075;
   };
 
