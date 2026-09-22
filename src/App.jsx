@@ -1,15 +1,25 @@
 import React, { useState } from 'react';
 
 export default function App() {
+  // 1. Estados
   const [propertyPrice, setPropertyPrice] = useState(800000);
   const [ltvPct, setLtvPct] = useState(90);
   const [termYears, setTermYears] = useState(30);
+  
+  // Estados para o regime de taxa de juro
+  const [rateType, setRateType] = useState('variable'); // 'variable' ou 'fixed'
   const [euriborPct, setEuriborPct] = useState(2.80);
   const [spreadPct, setSpreadPct] = useState(0.75);
+  const [fixedRatePct, setFixedRatePct] = useState(3.50);
+  
   const [stressBufferPct, setStressBufferPct] = useState(1.50);
   const [netIncome, setNetIncome] = useState(9000);
   const [otherDebts, setOtherDebts] = useState(300);
+  
+  // Campo editável para Custos de Notário/Registo
+  const [notaryCosts, setNotaryCosts] = useState(1200);
 
+  // 2. Lógica de Cálculo
   const calculateIMT = (price) => {
     if (price <= 101917) return 0;
     if (price <= 139412) return price * 0.02 - 2038.34;
@@ -31,10 +41,10 @@ export default function App() {
   const downPayment = propertyPrice - loanAmount;
   const imt = calculateIMT(propertyPrice);
   const stampDuty = propertyPrice * 0.008 + loanAmount * 0.006;
-  const notaryCosts = 1200;
   const totalInitialCash = downPayment + imt + stampDuty + notaryCosts;
 
-  const baseRate = euriborPct + spreadPct;
+  // Definição da TAN Base conforme o regime escolhido
+  const baseRate = rateType === 'variable' ? (euriborPct + spreadPct) : fixedRatePct;
   const stressRate = baseRate + stressBufferPct;
 
   const pmtBase = calculatePMT(loanAmount, baseRate, termYears);
@@ -50,6 +60,7 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
       <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden flex flex-col md:flex-row">
         
+        {/* Painel Esquerdo - Formulário */}
         <div className="w-full md:w-1/3 bg-gray-800 text-white p-6">
           <h2 className="text-xl font-bold mb-6 border-b border-gray-600 pb-2">Parâmetros da Operação</h2>
           
@@ -58,6 +69,7 @@ export default function App() {
               <label className="block text-sm font-medium mb-1">Valor do Imóvel (€)</label>
               <input type="number" value={propertyPrice} onChange={e => setPropertyPrice(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
             </div>
+            
             <div className="flex gap-4">
               <div className="w-1/2">
                 <label className="block text-sm font-medium mb-1">LTV (%)</label>
@@ -68,17 +80,54 @@ export default function App() {
                 <input type="number" value={termYears} onChange={e => setTermYears(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
               </div>
             </div>
-            <div className="flex gap-4">
-              <div className="w-1/2">
-                <label className="block text-sm font-medium mb-1">Euribor (%)</label>
-                <input type="number" step="0.01" value={euriborPct} onChange={e => setEuriborPct(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
-              </div>
-              <div className="w-1/2">
-                <label className="block text-sm font-medium mb-1">Spread (%)</label>
-                <input type="number" step="0.01" value={spreadPct} onChange={e => setSpreadPct(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+
+            {/* Seleção do Regime de Taxa */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Regime de Taxa</label>
+              <div className="flex gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setRateType('variable')} 
+                  className={`flex-1 py-1.5 px-3 rounded text-sm font-medium border ${rateType === 'variable' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300'}`}
+                >
+                  Variável
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setRateType('fixed')} 
+                  className={`flex-1 py-1.5 px-3 rounded text-sm font-medium border ${rateType === 'fixed' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300'}`}
+                >
+                  Fixa
+                </button>
               </div>
             </div>
+
+            {/* Condicional para Taxa Variável ou Fixa */}
+            {rateType === 'variable' ? (
+              <div className="flex gap-4">
+                <div className="w-1/2">
+                  <label className="block text-sm font-medium mb-1">Euribor (%)</label>
+                  <input type="number" step="0.01" value={euriborPct} onChange={e => setEuriborPct(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+                </div>
+                <div className="w-1/2">
+                  <label className="block text-sm font-medium mb-1">Spread (%)</label>
+                  <input type="number" step="0.01" value={spreadPct} onChange={e => setSpreadPct(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium mb-1">Taxa Fixa (TAN %)</label>
+                <input type="number" step="0.01" value={fixedRatePct} onChange={e => setFixedRatePct(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Notário / Registo (€)</label>
+              <input type="number" value={notaryCosts} onChange={e => setNotaryCosts(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
+            </div>
+
             <hr className="border-gray-600 my-4"/>
+            
             <div>
               <label className="block text-sm font-medium mb-1">Rendimento Mensal Líquido (€)</label>
               <input type="number" value={netIncome} onChange={e => setNetIncome(Number(e.target.value))} className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white" />
@@ -90,40 +139,46 @@ export default function App() {
           </div>
         </div>
 
+        {/* Painel Direito - Resultados */}
         <div className="w-full md:w-2/3 p-6 text-gray-800">
           <h2 className="text-2xl font-bold mb-6 text-gray-900">Análise de Risco e Viabilidade</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             
+            {/* Cartão de Capitais Próprios */}
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
               <h3 className="font-semibold text-blue-900 mb-4">Capitais Próprios Necessários</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span>Entrada ({100 - ltvPct}%):</span> <strong>{formatCurrency(downPayment)}</strong></div>
                 <div className="flex justify-between"><span>IMT (HPP):</span> <strong>{formatCurrency(imt)}</strong></div>
                 <div className="flex justify-between"><span>Imposto Selo:</span> <strong>{formatCurrency(stampDuty)}</strong></div>
-                <div className="flex justify-between"><span>Notário/Registo (Est.):</span> <strong>{formatCurrency(notaryCosts)}</strong></div>
+                <div className="flex justify-between"><span>Notário/Registo:</span> <strong>{formatCurrency(notaryCosts)}</strong></div>
                 <div className="pt-2 mt-2 border-t border-blue-200 flex justify-between text-base font-bold text-blue-700">
                   <span>Total Inicial:</span> <span>{formatCurrency(totalInitialCash)}</span>
                 </div>
               </div>
             </div>
 
+            {/* Cartão de Financiamento */}
             <div className="bg-green-50 p-4 rounded-lg border border-green-100">
               <h3 className="font-semibold text-green-900 mb-4">Condições de Financiamento</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span>Empréstimo (LTV {ltvPct}%):</span> <strong>{formatCurrency(loanAmount)}</strong></div>
-                <div className="flex justify-between"><span>TAN Base:</span> <strong>{formatPct(baseRate)}</strong></div>
+                <div className="flex justify-between"><span>TAN Base ({rateType === 'fixed' ? 'Fixa' : 'Variável'}):</span> <strong>{formatPct(baseRate)}</strong></div>
                 <div className="flex justify-between text-base font-bold text-green-700 mt-2 pt-2 border-t border-green-200">
                   <span>Prestação Base:</span> <span>{formatCurrency(pmtBase)}/mês</span>
                 </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Prestação Stress (+{stressBufferPct}%):</span> <span>{formatCurrency(pmtStress)}</span>
-                </div>
+                {rateType === 'variable' && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Prestação Stress (+{stressBufferPct}%):</span> <span>{formatCurrency(pmtStress)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
           </div>
 
+          {/* Taxa de Esforço */}
           <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
             <h3 className="font-semibold text-gray-900 mb-4">Taxa de Esforço (DSTI)</h3>
             
@@ -139,17 +194,19 @@ export default function App() {
               </div>
             </div>
 
-            <div>
-              <div className="flex justify-between mb-1 text-sm text-gray-600">
-                <span>Cenário de Stress ({formatPct(dstiStress)})</span>
-                <span className={dstiStress > 50 ? "text-red-600 font-bold" : "text-yellow-600 font-bold"}>
-                  Limite Regulação: 50%
-                </span>
+            {rateType === 'variable' && (
+              <div>
+                <div className="flex justify-between mb-1 text-sm text-gray-600">
+                  <span>Cenário de Stress ({formatPct(dstiStress)})</span>
+                  <span className={dstiStress > 50 ? "text-red-600 font-bold" : "text-yellow-600 font-bold"}>
+                    Limite Regulação: 50%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div className={`h-2.5 rounded-full ${dstiStress > 50 ? 'bg-red-600' : 'bg-yellow-400'}`} style={{ width: `${Math.min(dstiStress, 100)}%` }}></div>
+                </div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className={`h-2.5 rounded-full ${dstiStress > 50 ? 'bg-red-600' : 'bg-yellow-400'}`} style={{ width: `${Math.min(dstiStress, 100)}%` }}></div>
-              </div>
-            </div>
+            )}
 
           </div>
 
