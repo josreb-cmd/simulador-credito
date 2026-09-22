@@ -233,7 +233,8 @@ export default function App() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span>Entrada ({100 - safeNum(ltvPct)}%):</span> <strong>{formatCurrency(downPayment)}</strong></div>
                 <div className="flex justify-between"><span>IMT (HPP):</span> <strong>{formatCurrency(imt)}</strong></div>
-                <div className="flex justify-between"><span>Imposto Selo:</span> <strong>{formatCurrency(stampDuty)}</strong></div>
+                <div className="flex justify-between"><span>Imp. Selo (Aquisição 0,8%):</span> <strong>{formatCurrency(stampDutyAcquisition)}</strong></div>
+                <div className="flex justify-between"><span>Imp. Selo (Capital 0,6%):</span> <strong>{formatCurrency(stampDutyLoan)}</strong></div>
                 <div className="flex justify-between"><span>Notário/Registo:</span> <strong>{formatCurrency(currentNotary)}</strong></div>
                 <div className="pt-2 mt-2 border-t border-blue-200 flex justify-between text-base font-bold text-blue-700">
                   <span>Total Inicial:</span> <span>{formatCurrency(totalInitialCash)}</span>
