@@ -97,7 +97,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden flex flex-col md:flex-row">
+      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden flex flex-col md:flex-row border border-slate-300">
 
         {/* Painel Esquerdo - Formulário */}
         <div className="w-full md:w-1/3 bg-gray-800 text-white p-6">
