@@ -271,32 +271,67 @@ export default function App() {
 
           {/* Taxa de Esforço */}
           <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-4">Taxa de Esforço (DSTI)</h3>
+            <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8 13 13.7l-4-4L3 16.3"/></svg>
+              </span>
+              Taxa de Esforço (DSTI)
+            </h3>
 
-            <div className="mb-4">
-              <div className="flex justify-between mb-1 text-sm">
-                <span>Cenário Atual ({formatPct(dstiBase)})</span>
-                <span className={dstiBase > 45 ? "text-red-600 font-bold" : "text-green-600 font-bold"}>
+            {/* Cenário Atual */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-600">Cenário Atual</span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
+                  dstiBase <= 35 ? 'bg-green-50 text-green-700' : dstiBase <= 45 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
+                }`}>
                   {dstiBase <= 35 ? "Excelente" : dstiBase <= 45 ? "Aceitável" : "Risco Elevado"}
                 </span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className={`h-2.5 rounded-full ${dstiBase > 45 ? 'bg-red-600' : dstiBase > 35 ? 'bg-yellow-400' : 'bg-green-600'}`} style={{ width: `${Math.min(dstiBase, 100)}%` }}></div>
+              <div className="flex items-end justify-between mb-1.5">
+                <span className="text-2xl font-bold text-gray-900 tabular-nums">
+                  {formatPct(dstiBase).replace('.', ',')}
+                </span>
+                <span className="text-xs text-gray-400">limite 45%</span>
+              </div>
+              <div className="relative h-2.5 rounded-full bg-gray-100 border border-gray-200 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${dstiBase > 45 ? 'bg-red-600' : dstiBase > 35 ? 'bg-yellow-400' : 'bg-green-600'}`}
+                  style={{ width: `${Math.min(dstiBase, 100)}%` }}
+                ></div>
+                <div className="absolute -top-[3px] -bottom-[3px] w-0.5 bg-gray-400" style={{ left: '45%' }}></div>
               </div>
             </div>
 
             {rateType === 'variable' && (
-              <div>
-                <div className="flex justify-between mb-1 text-sm text-gray-600">
-                  <span>Cenário de Stress ({formatPct(dstiStress)})</span>
-                  <span className={dstiStress > 45 ? "text-red-600 font-bold" : "text-gray-500 font-medium"}>
-                    {dstiStress > 45 ? "Acima do Limite (45%)" : "Limite Regulação: 45%"}
-                  </span>
+              <>
+                <div className="h-px bg-gray-100 mb-6"></div>
+
+                {/* Cenário de Stress */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-600">Cenário de Stress</span>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      dstiStress > 45 ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {dstiStress > 45 ? "Acima do Limite (45%)" : "Limite Regulação: 45%"}
+                    </span>
+                  </div>
+                  <div className="flex items-end justify-between mb-1.5">
+                    <span className="text-2xl font-bold text-gray-900 tabular-nums">
+                      {formatPct(dstiStress).replace('.', ',')}
+                    </span>
+                    <span className="text-xs text-gray-400">limite 45%</span>
+                  </div>
+                  <div className="relative h-2.5 rounded-full bg-gray-100 border border-gray-200 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${dstiStress > 45 ? 'bg-red-600' : dstiStress > 35 ? 'bg-yellow-400' : 'bg-green-600'}`}
+                      style={{ width: `${Math.min(dstiStress, 100)}%` }}
+                    ></div>
+                    <div className="absolute -top-[3px] -bottom-[3px] w-0.5 bg-gray-400" style={{ left: '45%' }}></div>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div className={`h-2.5 rounded-full ${dstiStress > 45 ? 'bg-red-600' : dstiStress > 35 ? 'bg-yellow-400' : 'bg-green-600'}`} style={{ width: `${Math.min(dstiStress, 100)}%` }}></div>
-                </div>
-              </div>
+              </>
             )}
 
           </div>
