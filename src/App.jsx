@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import RegrasBdP2026 from './RegrasBdP2026';
 
 // Input numérico com formatação de milhares em tempo real (pt-PT: "." como separador de milhares, "," como decimal)
 function FormattedNumberInput({ value, onChange, className }) {
@@ -299,6 +300,9 @@ export default function App() {
             )}
 
           </div>
+
+          {/* Regras do Banco de Portugal 2026 */}
+          <RegrasBdP2026 />
 
         </div>
       </div>
