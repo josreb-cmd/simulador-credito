@@ -270,10 +270,10 @@ export default function App() {
           </div>
 
           {/* Taxa de Esforço */}
-          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+          <div className="p-6 rounded-lg border shadow-sm" style={{ background: '#f5f3ff', borderColor: '#ddd6fe' }}>
             <h3 className="font-bold text-gray-900 mb-5 flex items-center gap-2">
-              <span className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8 13 13.7l-4-4L3 16.3"/></svg>
+              <span className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8 13 13.7l-4-4L3 16.3"/></svg>
               </span>
               Taxa de Esforço (DSTI)
             </h3>
@@ -294,25 +294,25 @@ export default function App() {
                 </span>
                 <span className="text-xs text-gray-400">limite 45%</span>
               </div>
-              <div className="relative h-2.5 rounded-full bg-gray-100 border border-gray-200 overflow-hidden">
+              <div className="relative h-2.5 rounded-full bg-white border border-violet-200 overflow-hidden">
                 <div
                   className={`h-full rounded-full ${dstiBase > 45 ? 'bg-red-600' : dstiBase > 35 ? 'bg-yellow-400' : 'bg-green-600'}`}
                   style={{ width: `${Math.min(dstiBase, 100)}%` }}
                 ></div>
-                <div className="absolute -top-[3px] -bottom-[3px] w-0.5 bg-gray-400" style={{ left: '45%' }}></div>
+                <div className="absolute -top-[3px] -bottom-[3px] w-0.5 bg-violet-300" style={{ left: '45%' }}></div>
               </div>
             </div>
 
             {rateType === 'variable' && (
               <>
-                <div className="h-px bg-gray-100 mb-6"></div>
+                <div className="h-px bg-violet-200/60 mb-6"></div>
 
                 {/* Cenário de Stress */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-600">Cenário de Stress</span>
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      dstiStress > 45 ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-500'
+                      dstiStress > 45 ? 'bg-red-50 text-red-700' : 'bg-white text-gray-500'
                     }`}>
                       {dstiStress > 45 ? "Acima do Limite (45%)" : "Limite Regulação: 45%"}
                     </span>
@@ -323,12 +323,12 @@ export default function App() {
                     </span>
                     <span className="text-xs text-gray-400">limite 45%</span>
                   </div>
-                  <div className="relative h-2.5 rounded-full bg-gray-100 border border-gray-200 overflow-hidden">
+                  <div className="relative h-2.5 rounded-full bg-white border border-violet-200 overflow-hidden">
                     <div
                       className={`h-full rounded-full ${dstiStress > 45 ? 'bg-red-600' : dstiStress > 35 ? 'bg-yellow-400' : 'bg-green-600'}`}
                       style={{ width: `${Math.min(dstiStress, 100)}%` }}
                     ></div>
-                    <div className="absolute -top-[3px] -bottom-[3px] w-0.5 bg-gray-400" style={{ left: '45%' }}></div>
+                    <div className="absolute -top-[3px] -bottom-[3px] w-0.5 bg-violet-300" style={{ left: '45%' }}></div>
                   </div>
                 </div>
               </>
