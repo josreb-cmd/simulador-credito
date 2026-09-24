@@ -1,5 +1,85 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import RegrasBdP2026 from './RegrasBdP2026';
+
+// Fonte única de tabelas fiscais (IMT, Imposto do Selo, Benefício Jovem)
+const TABELAS_URL = 'https://tabelas.solucoeseficazes.pt/impostos.json';
+
+// Fallback local — espelho de impostos.json v2026.1, usado se o fetch falhar
+const TABELAS_FALLBACK = {
+  imt: {
+    hpp: [
+      { ate: 106346, taxa: 0, abater: 0 },
+      { ate: 145470, taxa: 0.02, abater: 2126.92 },
+      { ate: 198347, taxa: 0.05, abater: 6491.02 },
+      { ate: 330539, taxa: 0.07, abater: 10457.96 },
+      { ate: 660982, taxa: 0.08, abater: 13763.35 },
+      { ate: 1150853, taxa: 0.06, abater: 0, taxa_unica: true },
+      { ate: null, taxa: 0.075, abater: 0, taxa_unica: true },
+    ],
+    secundaria: [
+      { ate: 106346, taxa: 0.01, abater: 0 },
+      { ate: 145470, taxa: 0.02, abater: 1063.46 },
+      { ate: 198347, taxa: 0.05, abater: 5427.56 },
+      { ate: 330539, taxa: 0.07, abater: 9394.50 },
+      { ate: 660982, taxa: 0.08, abater: 12699.89 },
+      { ate: 1150853, taxa: 0.06, abater: 0, taxa_unica: true },
+      { ate: null, taxa: 0.075, abater: 0, taxa_unica: true },
+    ],
+  },
+  selo_aquisicao_imovel: { verba: '1.1', taxa: 0.008 },
+  selo_credito: {
+    geral: {
+      verba: '17.1',
+      escaloes: [
+        { prazo_max_meses: 12, taxa_mensal: 0.0004, verba_detalhe: '17.1.1' },
+        { prazo_min_anos: 1, prazo_max_anos: 5, taxa: 0.005, verba_detalhe: '17.1.2' },
+        { prazo_min_anos: 5, prazo_max_anos: null, taxa: 0.006, verba_detalhe: '17.1.3' },
+      ],
+    },
+  },
+  beneficio_jovem: {
+    idade_maxima: 35,
+    limite_isencao_total: 330539,
+    limite_isencao_parcial: 660982,
+  },
+};
+
+const isEscaloes = (arr) =>
+  Array.isArray(arr) && arr.length > 0 && arr.every(e => typeof e.taxa === 'number' && typeof e.abater === 'number');
+
+// Valida o JSON remoto; secções inválidas ou em falta caem para o fallback
+function mergeTabelas(data) {
+  const f = TABELAS_FALLBACK;
+  if (!data || typeof data !== 'object') return f;
+  const bj = data.beneficio_jovem;
+  const escaloesCredito = data.selo_credito?.geral?.escaloes;
+  const isBeneficioJovemValido =
+    bj && typeof bj.limite_isencao_total === 'number' && typeof bj.limite_isencao_parcial === 'number';
+  return {
+    imt: {
+      hpp: isEscaloes(data.imt?.hpp) ? data.imt.hpp : f.imt.hpp,
+      secundaria: isEscaloes(data.imt?.secundaria) ? data.imt.secundaria : f.imt.secundaria,
+    },
+    selo_aquisicao_imovel:
+      typeof data.selo_aquisicao_imovel?.taxa === 'number' ? data.selo_aquisicao_imovel : f.selo_aquisicao_imovel,
+    selo_credito: Array.isArray(escaloesCredito) ? data.selo_credito : f.selo_credito,
+    beneficio_jovem: isBeneficioJovemValido ? { ...f.beneficio_jovem, ...bj } : f.beneficio_jovem,
+  };
+}
+
+// IMT por escalões: taxa marginal com parcela a abater, ou taxa única nos escalões de topo
+function calcPorEscaloes(price, escaloes) {
+  const escalao = escaloes.find(e => e.ate === null || price <= e.ate);
+  if (!escalao) return 0;
+  if (escalao.taxa_unica) return price * escalao.taxa;
+  return Math.max(0, price * escalao.taxa - escalao.abater);
+}
+
+// Taxa da Verba 17.1.3 (crédito com prazo ≥ 5 anos)
+function taxaSeloCredito(tabelas) {
+  const escalao = tabelas.selo_credito.geral.escaloes.find(e => e.prazo_min_anos === 5 && typeof e.taxa === 'number');
+  return escalao ? escalao.taxa : 0.006;
+}
 
 // Input numérico com formatação de milhares em tempo real (pt-PT: "." como separador de milhares, "," como decimal)
 function FormattedNumberInput({ value, onChange, className }) {
@@ -50,18 +130,64 @@ export default function App() {
   // Campo editável para Custos de Notário/Registo
   const [notaryCosts, setNotaryCosts] = useState(1200);
 
+  // Tipo de imóvel e Benefício Jovem (DL 48-A/2024)
+  const [tipoImovel, setTipoImovel] = useState('hpp'); // 'hpp' ou 'secundaria'
+  const [isJovem, setIsJovem] = useState(false);
+  const [idadeMutuario, setIdadeMutuario] = useState(30);
+
+  // Tabelas fiscais: começa no fallback, substitui pelo JSON remoto se válido
+  const [tabelas, setTabelas] = useState(TABELAS_FALLBACK);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(TABELAS_URL, { signal: controller.signal })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(data => setTabelas(mergeTabelas(data)))
+      .catch(err => {
+        if (err.name !== 'AbortError') console.warn('Tabelas fiscais remotas indisponíveis, a usar fallback local:', err);
+      });
+    return () => controller.abort();
+  }, []);
+
   // Função auxiliar para tratar valores vazios de forma segura
   const safeNum = (val) => (val === '' || isNaN(val) ? 0 : Number(val));
 
   // 2. Lógica de Cálculo
-  const calculateIMT = (price) => {
-    if (price <= 106346) return 0;
-    if (price <= 145470) return price * 0.02 - 2126.92;
-    if (price <= 198347) return price * 0.05 - 6491.02;
-    if (price <= 330539) return price * 0.07 - 10457.96;
-    if (price <= 660982) return price * 0.08 - 13763.35;
-    if (price <= 1150853) return price * 0.06;
-    return price * 0.075;
+  const {
+    limite_isencao_total: limiteIsencaoTotal,
+    limite_isencao_parcial: limiteIsencaoParcial,
+    idade_maxima: idadeMaximaJovem,
+  } = tabelas.beneficio_jovem;
+  const isJovemElegivel = safeNum(idadeMutuario) > 0 && safeNum(idadeMutuario) <= idadeMaximaJovem;
+
+  // Isenção Jovem só se aplica a HPP: 'total', 'parcial' ou null
+  const getIsencaoJovem = (price, tipo, jovem) => {
+    if (!jovem || tipo !== 'hpp') return null;
+    if (price <= limiteIsencaoTotal) return 'total';
+    if (price <= limiteIsencaoParcial) return 'parcial';
+    return null;
+  };
+
+  const calculateIMT = (price, tipo, jovem) => {
+    const escaloes = tipo === 'secundaria' ? tabelas.imt.secundaria : tabelas.imt.hpp;
+    const isencao = getIsencaoJovem(price, tipo, jovem);
+    if (isencao === 'total') return 0;
+    if (isencao === 'parcial') {
+      return Math.max(0, calcPorEscaloes(price, tabelas.imt.hpp) - calcPorEscaloes(limiteIsencaoTotal, tabelas.imt.hpp));
+    }
+    return calcPorEscaloes(price, escaloes);
+  };
+
+  // Verba 1.1 — sobre o valor de aquisição; isenção Jovem só em HPP
+  const calculateStampDutyAcquisition = (price, tipo, jovem) => {
+    const taxa = tabelas.selo_aquisicao_imovel.taxa;
+    const isencao = getIsencaoJovem(price, tipo, jovem);
+    if (isencao === 'total') return 0;
+    if (isencao === 'parcial') return (price - limiteIsencaoTotal) * taxa;
+    return price * taxa;
   };
 
   const calculatePMT = (loan, annualRatePct, years) => {
@@ -73,9 +199,13 @@ export default function App() {
 
   const loanAmount = safeNum(propertyPrice) * (safeNum(ltvPct) / 100);
   const downPayment = safeNum(propertyPrice) - loanAmount;
-  const imt = calculateIMT(safeNum(propertyPrice));
-  const stampDutyAcquisition = safeNum(propertyPrice) * 0.008; // Verba 1.1 — sobre o valor de aquisição
-  const stampDutyLoan = loanAmount * 0.006; // Verba 17.1.3 — crédito com prazo ≥ 5 anos (taxa 0,6%)
+  const beneficioJovemAtivo = isJovem && isJovemElegivel;
+  const isencaoJovem = getIsencaoJovem(safeNum(propertyPrice), tipoImovel, beneficioJovemAtivo);
+  const isencaoJovemLabel =
+    isencaoJovem === 'total' ? ' (isento — Jovem)' : isencaoJovem === 'parcial' ? ' (isenção parcial — Jovem)' : '';
+  const imt = calculateIMT(safeNum(propertyPrice), tipoImovel, beneficioJovemAtivo);
+  const stampDutyAcquisition = calculateStampDutyAcquisition(safeNum(propertyPrice), tipoImovel, beneficioJovemAtivo);
+  const stampDutyLoan = loanAmount * taxaSeloCredito(tabelas); // Verba 17.1.3 — crédito com prazo ≥ 5 anos (0,6%); nunca isento pelo Benefício Jovem
   const stampDuty = stampDutyAcquisition + stampDutyLoan;
   const currentNotary = safeNum(notaryCosts);
   const totalInitialCash = downPayment + imt + stampDuty + currentNotary;
@@ -111,6 +241,47 @@ export default function App() {
                 onChange={setPropertyPrice}
                 className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Tipo de Imóvel</label>
+              <select
+                value={tipoImovel}
+                onChange={e => setTipoImovel(e.target.value)}
+                className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
+              >
+                <option value="hpp">HPP</option>
+                <option value="secundaria">Hab. Secundária</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Idade do Mutuário</label>
+              <input
+                type="number"
+                value={idadeMutuario}
+                onChange={e => setIdadeMutuario(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
+              />
+            </div>
+
+            <div>
+              <label className={`flex items-center gap-2 text-sm font-medium ${isJovemElegivel ? '' : 'text-gray-400'}`}>
+                <input
+                  type="checkbox"
+                  checked={beneficioJovemAtivo}
+                  disabled={!isJovemElegivel}
+                  onChange={e => setIsJovem(e.target.checked)}
+                  className="w-4 h-4 bg-gray-700 rounded border border-gray-600"
+                />
+                Benefício Jovem
+              </label>
+              {safeNum(idadeMutuario) > idadeMaximaJovem && (
+                <p className="text-xs text-yellow-400 mt-1">Só disponível até aos {idadeMaximaJovem} anos.</p>
+              )}
+              {beneficioJovemAtivo && tipoImovel === 'secundaria' && (
+                <p className="text-xs text-yellow-400 mt-1">Não se aplica a Habitação Secundária.</p>
+              )}
             </div>
 
             <div className="flex gap-4">
@@ -233,8 +404,8 @@ export default function App() {
               <h3 className="font-semibold text-blue-900 mb-4">Capitais Próprios Necessários</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span>Entrada ({100 - safeNum(ltvPct)}%):</span> <strong>{formatCurrency(downPayment)}</strong></div>
-                <div className="flex justify-between"><span>IMT (HPP):</span> <strong>{formatCurrency(imt)}</strong></div>
-                <div className="flex justify-between"><span>Imp. Selo (Aquisição 0,8%):</span> <strong>{formatCurrency(stampDutyAcquisition)}</strong></div>
+                <div className="flex justify-between"><span>IMT ({tipoImovel === 'secundaria' ? 'Hab. Secundária' : 'HPP'}){isencaoJovemLabel}:</span> <strong>{formatCurrency(imt)}</strong></div>
+                <div className="flex justify-between"><span>Imp. Selo (Aquisição 0,8%){isencaoJovemLabel}:</span> <strong>{formatCurrency(stampDutyAcquisition)}</strong></div>
                 <div className="flex justify-between"><span>Imp. Selo (Capital 0,6%):</span> <strong>{formatCurrency(stampDutyLoan)}</strong></div>
                 <div className="flex justify-between"><span>Notário/Registo:</span> <strong>{formatCurrency(currentNotary)}</strong></div>
                 <div className="pt-2 mt-2 border-t border-blue-200 flex justify-between text-base font-bold text-blue-700">
