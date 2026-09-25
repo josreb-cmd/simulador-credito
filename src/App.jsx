@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import RegrasBdP2026 from './RegrasBdP2026';
 
 // Fonte única de tabelas fiscais (IMT, Imposto do Selo, Benefício Jovem)
@@ -94,27 +94,114 @@ function getDSTIStatus(dsti) {
   return { label: 'Risco Elevado', color: { badge: 'bg-red-50 text-red-700', bar: 'bg-red-600' } };
 }
 
-// Input numérico com formatação de milhares em tempo real (pt-PT: "." como separador de milhares, "," como decimal)
-function FormattedNumberInput({ value, onChange, className }) {
-  const displayValue =
-    value === '' || value === null || isNaN(value)
-      ? ''
-      : new Intl.NumberFormat('pt-PT').format(value);
+// Tipo de campo numérico:
+// - 'percentagem': vírgula ou ponto como separador decimal (ex: "3,05" ou "3.75")
+// - 'euro': ponto é separador de milhares e vírgula é separador decimal (ex: "200.000,50")
+
+// Converte texto limpo (separador decimal já normalizado para ".") em número; "." isolado vale 0.
+const parseDecimal = (texto) => {
+  if (texto === '') return '';
+  const num = Number(`0${texto}`);
+  return isNaN(num) ? '' : num;
+};
+
+// Percentagem: só dígitos e um único separador decimal (vírgula ou ponto, mantém o que o
+// utilizador escreveu); remove zeros à esquerda (mas preserva "0" isolado e "0,x").
+const limparPercentagem = (input) => {
+  const raw = input.replace(/[^\d.,]/g, '');
+  const idxSeparador = raw.search(/[.,]/);
+  if (idxSeparador === -1) return raw.replace(/^0+(?=\d)/, '');
+  const inteira = raw.slice(0, idxSeparador).replace(/^0+(?=\d)/, '');
+  const decimal = raw.slice(idxSeparador + 1).replace(/[.,]/g, '');
+  return `${inteira}${raw[idxSeparador]}${decimal}`;
+};
+
+const agruparMilhares = (inteira) => inteira.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+// Euro: reagrupa a parte inteira com pontos de milhares a cada tecla (ex: "10000" → "10.000")
+// e aceita uma única vírgula decimal; remove zeros à esquerda (mas preserva "0" isolado e "0,x").
+const limparEuro = (input) => {
+  const raw = input.replace(/[^\d.,]/g, '');
+  const idxVirgula = raw.indexOf(',');
+  const inteiraRaw = idxVirgula === -1 ? raw : raw.slice(0, idxVirgula);
+  const inteira = agruparMilhares(inteiraRaw.replace(/\./g, '').replace(/^0+(?=\d)/, ''));
+  if (idxVirgula === -1) return inteira;
+  const decimal = raw.slice(idxVirgula + 1).replace(/[.,]/g, '');
+  return `${inteira},${decimal}`;
+};
+
+// Posição no texto limpo logo a seguir ao n-ésimo carácter significativo (dígito ou
+// separador decimal). Permite manter o cursor no mesmo sítio depois de reformatar.
+const posicaoAposSignificativos = (texto, n, significativo) => {
+  if (n <= 0) return 0;
+  let contados = 0;
+  for (let i = 0; i < texto.length; i++) {
+    if (significativo.test(texto[i])) contados++;
+    if (contados === n) return i + 1;
+  }
+  return texto.length;
+};
+
+const contarSignificativos = (texto, significativo) =>
+  [...texto].filter((ch) => significativo.test(ch)).length;
+
+// `significativo`: caracteres que contam para a posição do cursor (os pontos de milhares não)
+const CAMPO_NUMERICO = {
+  percentagem: {
+    significativo: /[\d.,]/,
+    limpar: limparPercentagem,
+    parse: (texto) => parseDecimal(texto.replace(',', '.')),
+    formatar: (value) => String(value).replace('.', ','),
+  },
+  euro: {
+    significativo: /[\d,]/,
+    limpar: limparEuro,
+    parse: (texto) => parseDecimal(texto.replace(/\./g, '').replace(',', '.')),
+    formatar: (value) => {
+      const [inteira, decimal] = String(value).split('.');
+      return decimal ? `${agruparMilhares(inteira)},${decimal}` : agruparMilhares(inteira);
+    },
+  },
+};
+
+// Input numérico em modo texto (evita o <input type="number"> nativo, cujo separador decimal
+// depende do idioma do browser). Guarda o texto escrito para não perder estados intermédios
+// como "3," ou "3,0" (que como número seriam só 3) e repõe o cursor depois de reformatar.
+// Os separadores aceites dependem do `tipo` ('percentagem' ou 'euro').
+function FormattedNumberInput({ value, onChange, tipo, className }) {
+  const campo = CAMPO_NUMERICO[tipo];
+  const formatarValor = (v) => (v === '' || v === null || isNaN(v) ? '' : campo.formatar(v));
+  const [texto, setTexto] = useState(() => formatarValor(value));
+  const inputRef = useRef(null);
+  // Posição do cursor a repor depois do próximo render (a reformatação move-o para o fim)
+  const cursorPendente = useRef(null);
+
+  // Se o valor mudar por fora (não pelo que foi escrito), mostra o valor novo
+  const displayValue = campo.parse(texto) === value ? texto : formatarValor(value);
+
+  useLayoutEffect(() => {
+    const posicao = cursorPendente.current;
+    if (posicao === null || !inputRef.current) return;
+    inputRef.current.setSelectionRange(posicao, posicao);
+    cursorPendente.current = null;
+  });
 
   const handleChange = (e) => {
-    // mantém apenas dígitos e vírgula decimal (remove separadores de milhares digitados/formatados)
-    const raw = e.target.value.replace(/[^\d,]/g, '');
-    if (raw === '') {
-      onChange('');
-      return;
-    }
-    const normalized = raw.replace(',', '.');
-    const num = Number(normalized);
-    onChange(isNaN(num) ? '' : num);
+    const { value: escrito, selectionStart } = e.target;
+    const antesDoCursor = escrito.slice(0, selectionStart ?? escrito.length);
+    const limpo = campo.limpar(escrito);
+    cursorPendente.current = posicaoAposSignificativos(
+      limpo,
+      contarSignificativos(antesDoCursor, campo.significativo),
+      campo.significativo,
+    );
+    setTexto(limpo);
+    onChange(campo.parse(limpo));
   };
 
   return (
     <input
+      ref={inputRef}
       type="text"
       inputMode="decimal"
       value={displayValue}
@@ -238,7 +325,10 @@ export default function App() {
   const dstiStressStatus = getDSTIStatus(dstiStress);
 
   const formatCurrency = (value) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value);
-  const formatPct = (value) => `${value.toFixed(2)}%`;
+  // Percentagem em formato PT-PT, arredondada a 2 casas (evita artefactos como 19.299999999999997)
+  const formatPctPT = (value) => `${value.toFixed(2).replace('.', ',')}%`;
+  // Etiqueta de percentagem do LTV: só "%" enquanto o campo está vazio
+  const formatLtvLabel = (value) => (ltvPct === '' ? '%' : formatPctPT(value));
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 font-sans">
@@ -252,6 +342,7 @@ export default function App() {
             <div>
               <label className="block text-sm font-medium mb-1">Valor do Imóvel (€)</label>
               <FormattedNumberInput
+                tipo="euro"
                 value={propertyPrice}
                 onChange={setPropertyPrice}
                 className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
@@ -302,10 +393,10 @@ export default function App() {
             <div className="flex gap-4">
               <div className="w-1/2">
                 <label className="block text-sm font-medium mb-1">LTV (%)</label>
-                <input
-                  type="number"
+                <FormattedNumberInput
+                  tipo="percentagem"
                   value={ltvPct}
-                  onChange={e => setLtvPct(e.target.value === '' ? '' : Number(e.target.value))}
+                  onChange={setLtvPct}
                   className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
                 />
               </div>
@@ -346,21 +437,19 @@ export default function App() {
               <div className="flex gap-4">
                 <div className="w-1/2">
                   <label className="block text-sm font-medium mb-1">Euribor (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
+                  <FormattedNumberInput
+                    tipo="percentagem"
                     value={euriborPct}
-                    onChange={e => setEuriborPct(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={setEuriborPct}
                     className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
                   />
                 </div>
                 <div className="w-1/2">
                   <label className="block text-sm font-medium mb-1">Spread (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
+                  <FormattedNumberInput
+                    tipo="percentagem"
                     value={spreadPct}
-                    onChange={e => setSpreadPct(e.target.value === '' ? '' : Number(e.target.value))}
+                    onChange={setSpreadPct}
                     className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
                   />
                 </div>
@@ -368,11 +457,10 @@ export default function App() {
             ) : (
               <div>
                 <label className="block text-sm font-medium mb-1">Taxa Fixa (TAN %)</label>
-                <input
-                  type="number"
-                  step="0.01"
+                <FormattedNumberInput
+                  tipo="percentagem"
                   value={fixedRatePct}
-                  onChange={e => setFixedRatePct(e.target.value === '' ? '' : Number(e.target.value))}
+                  onChange={setFixedRatePct}
                   className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
                 />
               </div>
@@ -381,6 +469,7 @@ export default function App() {
             <div>
               <label className="block text-sm font-medium mb-1">Notário / Registo (€)</label>
               <FormattedNumberInput
+                tipo="euro"
                 value={notaryCosts}
                 onChange={setNotaryCosts}
                 className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
@@ -392,6 +481,7 @@ export default function App() {
             <div>
               <label className="block text-sm font-medium mb-1">Rendimento Mensal Líquido (€)</label>
               <FormattedNumberInput
+                tipo="euro"
                 value={netIncome}
                 onChange={setNetIncome}
                 className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
@@ -400,6 +490,7 @@ export default function App() {
             <div>
               <label className="block text-sm font-medium mb-1">Outros Créditos Mensais (€)</label>
               <FormattedNumberInput
+                tipo="euro"
                 value={otherDebts}
                 onChange={setOtherDebts}
                 className="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white"
@@ -418,7 +509,7 @@ export default function App() {
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
               <h3 className="font-semibold text-blue-900 mb-4">Capitais Próprios Necessários</h3>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Entrada ({100 - safeNum(ltvPct)}%):</span> <strong>{formatCurrency(downPayment)}</strong></div>
+                <div className="flex justify-between"><span>Entrada ({formatLtvLabel(100 - safeNum(ltvPct))}):</span> <strong>{formatCurrency(downPayment)}</strong></div>
                 <div className="flex justify-between"><span>IMT ({tipoImovel === 'secundaria' ? 'Hab. Secundária' : 'HPP'}){isencaoJovemLabel}:</span> <strong>{formatCurrency(imt)}</strong></div>
                 <div className="flex justify-between"><span>Imp. Selo (Aquisição 0,8%){isencaoJovemLabel}:</span> <strong>{formatCurrency(stampDutyAcquisition)}</strong></div>
                 <div className="flex justify-between"><span>Imp. Selo (Capital 0,6%):</span> <strong>{formatCurrency(stampDutyLoan)}</strong></div>
@@ -433,13 +524,13 @@ export default function App() {
             <div className="bg-green-50 p-4 rounded-lg border border-green-100">
               <h3 className="font-semibold text-green-900 mb-4">Condições de Financiamento</h3>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Empréstimo (LTV {ltvPct}%):</span> <strong>{formatCurrency(loanAmount)}</strong></div>
+                <div className="flex justify-between"><span>Empréstimo (LTV {formatLtvLabel(safeNum(ltvPct))}):</span> <strong>{formatCurrency(loanAmount)}</strong></div>
                 <div className="flex justify-between">
-                  <span>TAN Base ({rateType === 'fixed' ? 'Fixa' : 'Variável'}):</span> <strong>{formatPct(baseRate)}</strong>
+                  <span>TAN Base ({rateType === 'fixed' ? 'Fixa' : 'Variável'}):</span> <strong>{formatPctPT(baseRate)}</strong>
                 </div>
                 {rateType === 'variable' && (
                   <div className="flex justify-end text-xs text-gray-500 -mt-2">
-                    Euribor {formatPct(safeNum(euriborPct))} + Spread {formatPct(safeNum(spreadPct))}
+                    Euribor {formatPctPT(safeNum(euriborPct))} + Spread {formatPctPT(safeNum(spreadPct))}
                   </div>
                 )}
                 <div className="flex justify-between text-base font-bold text-green-700 mt-2 pt-2 border-t border-green-200">
@@ -447,7 +538,7 @@ export default function App() {
                 </div>
                 {rateType === 'variable' && (
                   <div className="flex justify-between text-gray-600">
-                    <span>Prestação Stress (+{stressBufferPct}%):</span> <span>{formatCurrency(pmtStress)}</span>
+                    <span>Prestação Stress (+{formatPctPT(stressBufferPct)}):</span> <span>{formatCurrency(pmtStress)}</span>
                   </div>
                 )}
               </div>
@@ -474,7 +565,7 @@ export default function App() {
               </div>
               <div className="flex items-end justify-between mb-1.5">
                 <span className="text-2xl font-bold text-gray-900 tabular-nums">
-                  {formatPct(dstiBase).replace('.', ',')}
+                  {formatPctPT(dstiBase)}
                 </span>
                 <span className="text-xs text-gray-400">limite 45%</span>
               </div>
@@ -501,7 +592,7 @@ export default function App() {
                   </div>
                   <div className="flex items-end justify-between mb-1.5">
                     <span className="text-2xl font-bold text-gray-900 tabular-nums">
-                      {formatPct(dstiStress).replace('.', ',')}
+                      {formatPctPT(dstiStress)}
                     </span>
                     <span className="text-xs text-gray-400">Limite Regulação: 45%</span>
                   </div>
