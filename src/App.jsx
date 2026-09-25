@@ -81,6 +81,19 @@ function taxaSeloCredito(tabelas) {
   return escalao ? escalao.taxa : 0.006;
 }
 
+// Estado da taxa de esforço (DSTI): label e classes de cor para badge e barra
+const DSTI_EXCELLENT_MAX = 35;
+const DSTI_LIMIT = 45;
+function getDSTIStatus(dsti) {
+  if (dsti <= DSTI_EXCELLENT_MAX) {
+    return { label: 'Excelente', color: { badge: 'bg-green-50 text-green-700', bar: 'bg-green-600' } };
+  }
+  if (dsti <= DSTI_LIMIT) {
+    return { label: 'Aceitável', color: { badge: 'bg-amber-50 text-amber-700', bar: 'bg-yellow-400' } };
+  }
+  return { label: 'Risco Elevado', color: { badge: 'bg-red-50 text-red-700', bar: 'bg-red-600' } };
+}
+
 // Input numérico com formatação de milhares em tempo real (pt-PT: "." como separador de milhares, "," como decimal)
 function FormattedNumberInput({ value, onChange, className }) {
   const displayValue =
@@ -221,6 +234,8 @@ export default function App() {
   const currentDebts = safeNum(otherDebts);
   const dstiBase = currentIncome > 0 ? ((pmtBase + currentDebts) / currentIncome) * 100 : 0;
   const dstiStress = currentIncome > 0 ? ((pmtStress + currentDebts) / currentIncome) * 100 : 0;
+  const dstiBaseStatus = getDSTIStatus(dstiBase);
+  const dstiStressStatus = getDSTIStatus(dstiStress);
 
   const formatCurrency = (value) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value);
   const formatPct = (value) => `${value.toFixed(2)}%`;
@@ -453,10 +468,8 @@ export default function App() {
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-600">Cenário Atual</span>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
-                  dstiBase <= 35 ? 'bg-green-50 text-green-700' : dstiBase <= 45 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
-                }`}>
-                  {dstiBase <= 35 ? "Excelente" : dstiBase <= 45 ? "Aceitável" : "Risco Elevado"}
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${dstiBaseStatus.color.badge}`}>
+                  {dstiBaseStatus.label}
                 </span>
               </div>
               <div className="flex items-end justify-between mb-1.5">
@@ -467,7 +480,7 @@ export default function App() {
               </div>
               <div className="relative h-2.5 rounded-full bg-white border border-violet-200 overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${dstiBase > 45 ? 'bg-red-600' : dstiBase > 35 ? 'bg-yellow-400' : 'bg-green-600'}`}
+                  className={`h-full rounded-full ${dstiBaseStatus.color.bar}`}
                   style={{ width: `${Math.min(dstiBase, 100)}%` }}
                 ></div>
                 <div className="absolute -top-[3px] -bottom-[3px] w-0.5 bg-violet-300" style={{ left: '45%' }}></div>
@@ -482,21 +495,19 @@ export default function App() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-600">Cenário de Stress</span>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      dstiStress > 45 ? 'bg-red-50 text-red-700' : 'bg-white text-gray-500'
-                    }`}>
-                      {dstiStress > 45 ? "Acima do Limite (45%)" : "Limite Regulação: 45%"}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${dstiStressStatus.color.badge}`}>
+                      {dstiStressStatus.label}
                     </span>
                   </div>
                   <div className="flex items-end justify-between mb-1.5">
                     <span className="text-2xl font-bold text-gray-900 tabular-nums">
                       {formatPct(dstiStress).replace('.', ',')}
                     </span>
-                    <span className="text-xs text-gray-400">limite 45%</span>
+                    <span className="text-xs text-gray-400">Limite Regulação: 45%</span>
                   </div>
                   <div className="relative h-2.5 rounded-full bg-white border border-violet-200 overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${dstiStress > 45 ? 'bg-red-600' : dstiStress > 35 ? 'bg-yellow-400' : 'bg-green-600'}`}
+                      className={`h-full rounded-full ${dstiStressStatus.color.bar}`}
                       style={{ width: `${Math.min(dstiStress, 100)}%` }}
                     ></div>
                     <div className="absolute -top-[3px] -bottom-[3px] w-0.5 bg-violet-300" style={{ left: '45%' }}></div>
